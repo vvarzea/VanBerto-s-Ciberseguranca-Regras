@@ -556,23 +556,15 @@ function flagImg(id){
 const LEVELS = {
   easy: {
     conts: ['senha','dados','links','ajuda'],
-    ids: ['senha1','senha2','senha3',
-          'dados1','dados2','dados3',
-          'links1','links2','links3',
-          'ajuda1','ajuda2','ajuda3'],
+    countPerCont: 3, // escolhidos ao calhas dos 6 disponíveis em cada categoria
   },
   medium: {
     conts: ['senha','dados','publicar','links','privacidade','dispositivos'],
-    ids: ['senha1','senha2','senha3','senha4',
-          'dados1','dados2','dados3','dados4',
-          'publicar1','publicar2','publicar3','publicar4',
-          'links1','links2','links3','links4',
-          'privacidade1','privacidade2','privacidade3','privacidade4',
-          'dispositivos1','dispositivos2','dispositivos3','dispositivos4'],
+    countPerCont: 4,
   },
   hard: {
     conts: ['senha','dados','publicar','links','privacidade','dispositivos','backup','ajuda'],
-    ids: null,
+    countPerCont: null, // null = usar todos os cartões da categoria
   },
 };
 
@@ -1051,6 +1043,7 @@ function saveProgress(){
     if(gameOver || scoreOk<=0 || scoreOk>=total){ localStorage.removeItem(SAVE_KEY); return; }
     const data={
       level: currentLevel,
+      activeIds: currentActiveIds ? currentActiveIds.slice() : null,
       playerName: (document.getElementById('playerNameInput').value||'').trim(),
       scoreOk, scoreErr, comboCount, nextBonusAt, hintsUsed,
       contCounts: Object.assign({},contCounts),
@@ -1787,10 +1780,27 @@ function selectLevel(level){
   if(d) d.textContent=LVL_DESCS[level];
 }
 
+/* IDs dos cartões escolhidos para a partida atual (aleatórios por categoria,
+   mas fixos enquanto a partida decorre — ver startLevel/pickActiveIds). */
+let currentActiveIds = null;
+
+function pickActiveIds(level){
+  const lv = LEVELS[level];
+  const ids = [];
+  lv.conts.forEach(cont=>{
+    const pool = ALL_CARDS.filter(c=>c.cont===cont);
+    if(lv.countPerCont==null || lv.countPerCont>=pool.length){
+      ids.push(...pool.map(c=>c.id));
+    } else {
+      ids.push(...shuffle(pool).slice(0,lv.countPerCont).map(c=>c.id));
+    }
+  });
+  return ids;
+}
+
 function getActiveCards(){
-  const lv=LEVELS[currentLevel];
-  if(!lv.ids) return ALL_CARDS; // hard = all
-  return ALL_CARDS.filter(card=>lv.ids.includes(card.id));
+  if(!currentActiveIds) currentActiveIds = pickActiveIds(currentLevel); // salvaguarda
+  return ALL_CARDS.filter(card=>currentActiveIds.includes(card.id));
 }
 
 function getActiveCont(){
@@ -1800,6 +1810,11 @@ function getActiveCont(){
 function startLevel(level, restore){
   if(!level) level=selectedLevel;
   currentLevel=level;
+  // Escolher os cartões desta partida: se estamos a continuar um jogo guardado,
+  // reutilizar exatamente os mesmos; caso contrário, sortear novos por categoria.
+  currentActiveIds = (restore && Array.isArray(restore.activeIds) && restore.activeIds.length)
+    ? restore.activeIds.slice()
+    : pickActiveIds(level);
   document.getElementById('startScreen').classList.remove('active');
   document.querySelector('header').style.display='';
   // Mostrar nome do aluno no header
