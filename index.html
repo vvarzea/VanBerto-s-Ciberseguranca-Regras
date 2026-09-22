@@ -268,12 +268,24 @@ main{display:flex;flex-direction:column;align-items:center;gap:.8rem;padding:.8r
 /* ── certificado (só visível ao imprimir) ── */
 #certificate{display:none;}
 @media print{
+  @page{margin:0;}
   body > *:not(#certificate){display:none!important;}
-  #certificate{display:block!important;position:static;width:100%;padding:2.5rem;background:#fff;color:#1a0835;font-family:'Nunito',sans-serif;text-align:center;}
-  #certificate h1{font-family:'Fredoka One',cursive;font-size:2rem;color:#ec1e79;margin-bottom:1.2rem;}
-  #certificate .cert-name{font-size:1.6rem;font-weight:900;margin:1rem 0;color:#0f0525;}
-  #certificate .cert-stars{font-size:2rem;margin:.6rem 0;}
-  #certificate .cert-foot{margin-top:2rem;font-size:.85rem;color:#666;}
+  #certificate{display:flex!important;position:static;width:100%;min-height:100vh;align-items:center;justify-content:center;background:#efe6d8;padding:1.4cm;}
+  #certificate .cert-frame{position:relative;width:100%;max-width:680px;border:3px solid #ec1e79;border-radius:20px;padding:2.6rem 2.2rem 2.2rem;background:#fffdf8;box-shadow:inset 0 0 0 8px #fff,inset 0 0 0 9px #ffa733;text-align:center;font-family:Georgia,'Times New Roman',serif;color:#1a0835;overflow:hidden;}
+  #certificate .cert-watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16rem;opacity:.05;pointer-events:none;}
+  #certificate .cert-ribbon{display:inline-block;background:linear-gradient(135deg,#ec1e79,#ffa733);color:#fff;font-family:'Fredoka One',cursive;font-size:.85rem;letter-spacing:2px;padding:.35rem 1.3rem;border-radius:30px;margin-bottom:1rem;text-transform:uppercase;box-shadow:0 3px 10px rgba(0,0,0,.15);}
+  #certificate h1{font-family:'Fredoka One',cursive;font-size:1.9rem;color:#ec1e79;margin:.2rem 0 .3rem;}
+  #certificate .cert-sub{font-size:.95rem;font-style:italic;color:#555;margin-bottom:.4rem;}
+  #certificate .cert-name{font-size:1.9rem;font-weight:900;margin:.5rem 0 .7rem;color:#0f0525;font-family:'Fredoka One',cursive;}
+  #certificate .cert-name::after{content:'';display:block;width:60%;height:2px;background:linear-gradient(90deg,transparent,#ffa733,transparent);margin:.5rem auto 0;}
+  #certificate .cert-desc{font-size:.95rem;margin:.3rem 0;color:#333;}
+  #certificate .cert-hints{font-size:.8rem;color:#888;font-style:italic;margin-top:.2rem;}
+  #certificate .cert-stars{font-size:2.1rem;margin:1rem 0 .2rem;text-shadow:0 2px 6px rgba(255,167,51,.4);}
+  #certificate .cert-foot-row{display:flex;justify-content:space-between;gap:1.5rem;margin-top:1.8rem;padding-top:.6rem;}
+  #certificate .cert-foot-col{flex:1;font-size:.78rem;color:#444;}
+  #certificate .cert-foot-col .line{border-top:1.4px solid #999;margin-bottom:.3rem;padding-top:.25rem;font-weight:bold;color:#222;}
+  #certificate .cert-seal{position:absolute;bottom:1.1rem;right:1.3rem;width:4.6rem;height:4.6rem;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe08a,#ffa733 60%,#ec1e79 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fredoka One',cursive;font-size:.55rem;text-align:center;line-height:1.15;transform:rotate(-12deg);box-shadow:0 4px 10px rgba(0,0,0,.25);border:2px solid #fff;}
+  #certificate .cert-id{font-size:.65rem;color:#aaa;margin-top:1rem;letter-spacing:.5px;}
 }
 
 /* ── painel de estatísticas (professor) ── */
@@ -470,14 +482,22 @@ main{display:flex;flex-direction:column;align-items:center;gap:.8rem;padding:.8r
 
 <!-- Certificado (visível apenas ao imprimir) -->
 <div id="certificate">
-  <h1>🛡️ Certificado de Cibersegurança</h1>
-  <p>Certificamos que</p>
-  <p class="cert-name" id="cert-name"></p>
-  <p id="cert-level"></p>
-  <p id="cert-hints"></p>
-  <p class="cert-stars" id="cert-stars"></p>
-  <p id="cert-date"></p>
-  <p class="cert-foot">© Prof.ª Vanda Várzea</p>
+  <div class="cert-frame">
+    <div class="cert-watermark">🛡️</div>
+    <span class="cert-ribbon">🏆 Certificado Oficial</span>
+    <h1>🛡️ Certificado de Cibersegurança</h1>
+    <p class="cert-sub">Certificamos que</p>
+    <p class="cert-name" id="cert-name"></p>
+    <p class="cert-desc" id="cert-level"></p>
+    <p class="cert-hints" id="cert-hints"></p>
+    <p class="cert-stars" id="cert-stars"></p>
+    <div class="cert-foot-row">
+      <div class="cert-foot-col"><div class="line">Prof.ª Vanda Várzea</div>Responsável pelo jogo</div>
+      <div class="cert-foot-col"><div class="line" id="cert-date"></div>Data de conclusão</div>
+    </div>
+    <p class="cert-id" id="cert-id"></p>
+    <div class="cert-seal">SUPER<br>HERÓI</div>
+  </div>
 </div>
 
 <!-- Painel de Estatísticas (professor) -->
@@ -724,7 +744,11 @@ function fillCertificate(stars){
   document.getElementById('cert-level').textContent = `Completou o nível ${lvlLabel} · ${scoreOk} regras de cibersegurança aprendidas`;
   document.getElementById('cert-hints').textContent = lastHintsUsed>0 ? `Dicas pedidas: ${lastHintsUsed}` : '';
   document.getElementById('cert-stars').textContent = '⭐'.repeat(stars)+'☆'.repeat(3-stars);
-  document.getElementById('cert-date').textContent = new Date().toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'});
+  const now = new Date();
+  document.getElementById('cert-date').textContent = now.toLocaleDateString('pt-PT',{day:'2-digit',month:'long',year:'numeric'});
+  const idNum = String(now.getFullYear())+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0')
+    +'-'+Math.abs(name.length*31+now.getHours()*7+now.getMinutes()).toString().padStart(4,'0');
+  document.getElementById('cert-id').textContent = 'Certificado nº '+idNum;
 }
 
 function buildCertificateHTML(){
@@ -733,26 +757,44 @@ function buildCertificateHTML(){
   const hints=document.getElementById('cert-hints').textContent;
   const stars=document.getElementById('cert-stars').textContent;
   const date=document.getElementById('cert-date').textContent;
+  const certId=document.getElementById('cert-id').textContent;
   return `<!DOCTYPE html><html lang="pt-PT"><head><meta charset="UTF-8"><title>Certificado de Cibersegurança</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;background:#fdf6ec;color:#1a0835;text-align:center;padding:3rem 1.2rem;margin:0;}
-  .cert{max-width:640px;margin:0 auto;border:6px double #ec1e79;border-radius:18px;padding:2.5rem 2rem;background:#fff;}
-  h1{font-size:1.7rem;color:#ec1e79;margin:0 0 1.4rem;}
-  .name{font-size:1.6rem;font-weight:bold;margin:1.1rem 0;color:#0f0525;}
-  .stars{font-size:2.1rem;margin:.7rem 0;}
-  .foot{margin-top:2rem;font-size:.82rem;color:#666;}
-  @media print{ body{background:#fff;padding:0;} .cert{border:none;} }
+  @page{margin:0;}
+  body{font-family:Georgia,'Times New Roman',serif;background:#efe6d8;color:#1a0835;text-align:center;padding:2.4rem 1rem;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;}
+  .cert-frame{position:relative;max-width:680px;width:100%;border:3px solid #ec1e79;border-radius:20px;padding:2.8rem 2.3rem 2.3rem;background:#fffdf8;box-shadow:inset 0 0 0 8px #fff,inset 0 0 0 9px #ffa733,0 20px 60px rgba(0,0,0,.25);overflow:hidden;box-sizing:border-box;}
+  .cert-watermark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18rem;opacity:.05;pointer-events:none;}
+  .cert-ribbon{display:inline-block;background:linear-gradient(135deg,#ec1e79,#ffa733);color:#fff;font-weight:bold;font-size:.85rem;letter-spacing:2px;padding:.4rem 1.4rem;border-radius:30px;margin-bottom:1.1rem;text-transform:uppercase;box-shadow:0 3px 10px rgba(0,0,0,.2);}
+  h1{font-size:2rem;color:#ec1e79;margin:.2rem 0 .4rem;}
+  .sub{font-size:1rem;font-style:italic;color:#555;margin-bottom:.5rem;}
+  .name{font-size:2rem;font-weight:bold;margin:.6rem 0 .8rem;color:#0f0525;}
+  .name::after{content:'';display:block;width:55%;height:2px;background:linear-gradient(90deg,transparent,#ffa733,transparent);margin:.6rem auto 0;}
+  .desc{font-size:1rem;margin:.3rem 0;color:#333;}
+  .hints{font-size:.85rem;color:#888;font-style:italic;margin-top:.3rem;}
+  .stars{font-size:2.3rem;margin:1.1rem 0 .3rem;text-shadow:0 2px 6px rgba(255,167,51,.4);}
+  .foot-row{display:flex;justify-content:space-between;gap:2rem;margin-top:2rem;}
+  .foot-col{flex:1;font-size:.82rem;color:#444;}
+  .foot-col .line{border-top:1.4px solid #999;margin-bottom:.35rem;padding-top:.3rem;font-weight:bold;color:#222;}
+  .seal{position:absolute;bottom:1.2rem;right:1.4rem;width:5rem;height:5rem;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe08a,#ffa733 60%,#ec1e79 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:.6rem;text-align:center;line-height:1.15;transform:rotate(-12deg);box-shadow:0 4px 10px rgba(0,0,0,.3);border:2px solid #fff;}
+  .cert-id{font-size:.68rem;color:#aaa;margin-top:1.2rem;letter-spacing:.5px;}
+  @media print{ body{background:#fff;padding:0;} }
 </style></head>
 <body>
-  <div class="cert">
+  <div class="cert-frame">
+    <div class="cert-watermark">🛡️</div>
+    <span class="cert-ribbon">🏆 Certificado Oficial</span>
     <h1>🛡️ Certificado de Cibersegurança</h1>
-    <p>Certificamos que</p>
+    <p class="sub">Certificamos que</p>
     <p class="name">${name}</p>
-    <p>${level}</p>
-    ${hints?`<p>${hints}</p>`:''}
+    <p class="desc">${level}</p>
+    ${hints?`<p class="hints">${hints}</p>`:''}
     <p class="stars">${stars}</p>
-    <p>${date}</p>
-    <p class="foot">© Prof.ª Vanda Várzea</p>
+    <div class="foot-row">
+      <div class="foot-col"><div class="line">Prof.ª Vanda Várzea</div>Responsável pelo jogo</div>
+      <div class="foot-col"><div class="line">${date}</div>Data de conclusão</div>
+    </div>
+    <p class="cert-id">${certId}</p>
+    <div class="seal">SUPER<br>HERÓI</div>
   </div>
 </body></html>`;
 }
