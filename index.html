@@ -216,6 +216,10 @@ main{display:flex;flex-direction:column;align-items:center;gap:.8rem;padding:.8r
 .lvl-btn.medium{border-color:#ff9f43;color:#ff9f43;}.lvl-btn.medium.active{background:#ff9f43;color:#0f0525;box-shadow:0 0 12px rgba(255,159,67,.45);}
 .lvl-btn.hard{border-color:#ec1e79;color:#ec1e79;}.lvl-btn.hard.active{background:#ec1e79;color:#fff8e0;box-shadow:0 0 12px rgba(236,30,121,.5);}
 .lvl-desc{font-size:11px;color:#ffb890;text-align:center;margin-bottom:10px;font-style:italic;min-height:14px;}
+.coverage-wrap{margin:0 0 12px;text-align:center;}
+.coverage-label{font-size:11px;color:#7ee8ff;margin-bottom:4px;font-weight:700;}
+.coverage-bar{width:100%;height:7px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden;}
+.coverage-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#4ecb71,#7ee8ff);transition:width .5s ease;}
 .btn{font-family:'Nunito',sans-serif;border:2.5px solid #ec1e79;background:linear-gradient(180deg,#3a0868,#25044a);color:#ffa733;border-radius:10px;padding:clamp(7px,1.5vw,10px) clamp(12px,2.5vw,18px);font-weight:900;font-size:clamp(.82rem,1.9vw,.95rem);cursor:pointer;box-shadow:4px 4px 0 #0a0520;transition:transform .08s,box-shadow .08s;}
 .btn:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 #0a0520;}
 .btn.primary{background:linear-gradient(180deg,#ec1e79,#e04010);color:#fff8e0;border-color:#ffa733;box-shadow:4px 4px 0 #0a0520;}
@@ -324,6 +328,10 @@ main{display:flex;flex-direction:column;align-items:center;gap:.8rem;padding:.8r
       <button class="lvl-btn hard" onclick="selectLevel(&#39;hard&#39;)">⭐⭐⭐ Difícil</button>
     </div>
     <p class="lvl-desc" id="startLvlDesc">4 regras · 12 cartões — perfeito para começar!</p>
+    <div class="coverage-wrap" id="coverageWrap" title="Regras diferentes que já descobriste, em todas as partidas">
+      <div class="coverage-label" id="coverageLabel">🗺️ 0/48 regras descobertas</div>
+      <div class="coverage-bar"><div class="coverage-fill" id="coverageFill" style="width:0%;"></div></div>
+    </div>
     <div class="name-field-wrap">
       <label class="name-label" for="playerNameInput">🎈 O teu nome:</label>
       <input class="name-input" id="playerNameInput" type="text" maxlength="30" placeholder="Escreve o teu nome..." autocomplete="off" spellcheck="false" onkeydown="if(event.key===&#39;Enter&#39;)startLevel(selectedLevel)">
@@ -553,17 +561,19 @@ function flagImg(id){
   img.alt=id;
   return img;
 }
+const ALL_CONTS = ['senha','dados','publicar','links','privacidade','dispositivos','backup','ajuda'];
+
 const LEVELS = {
   easy: {
-    conts: ['senha','dados','links','ajuda'],
-    countPerCont: 3, // escolhidos ao calhas dos 6 disponíveis em cada categoria
+    contsPool: ALL_CONTS, contsCount: 4, // 4 categorias sorteadas de entre as 8, a cada partida
+    countPerCont: 3, // e 3 cartões ao calhas dos 6 disponíveis em cada uma
   },
   medium: {
-    conts: ['senha','dados','publicar','links','privacidade','dispositivos'],
+    contsPool: ALL_CONTS, contsCount: 6, // 6 categorias sorteadas de entre as 8
     countPerCont: 4,
   },
   hard: {
-    conts: ['senha','dados','publicar','links','privacidade','dispositivos','backup','ajuda'],
+    conts: ALL_CONTS, // fixo: todas as 8 categorias
     countPerCont: null, // null = usar todos os cartões da categoria
   },
 };
@@ -647,6 +657,29 @@ let bubT=null,idleT=null;
 /* ══ SOM / SILÊNCIO ══ */
 const SAVE_KEY='ciberseg_save_v1';
 const MUTE_KEY='ciberseg_muted_v1';
+
+/* ══ COBERTURA ACUMULADA (regras já descobertas em todas as partidas) ══ */
+const COVERAGE_KEY='ciberseg_coverage_v1';
+let discoveredCards = new Set();
+try{
+  const raw = localStorage.getItem(COVERAGE_KEY);
+  if(raw) discoveredCards = new Set(JSON.parse(raw));
+}catch(e){ discoveredCards = new Set(); }
+function markCardDiscovered(id){
+  if(discoveredCards.has(id)) return;
+  discoveredCards.add(id);
+  try{ localStorage.setItem(COVERAGE_KEY, JSON.stringify(Array.from(discoveredCards))); }catch(e){}
+  updateCoverageUI();
+}
+function updateCoverageUI(){
+  const label=document.getElementById('coverageLabel');
+  const fill=document.getElementById('coverageFill');
+  if(!label||!fill) return;
+  const total = ALL_CARDS.length;
+  const n = discoveredCards.size;
+  label.textContent = `🗺️ ${n}/${total} regras descobertas`;
+  fill.style.width = (total? (n/total*100) : 0)+'%';
+}
 let muted = false;
 try{ muted = localStorage.getItem(MUTE_KEY)==='1'; }catch(e){}
 function toggleMute(){
@@ -1016,6 +1049,19 @@ async function downloadCertificatePNG(){
 }
 
 /* ══ PEDIR AJUDA (dica manual, além da automática após 2 erros) ══ */
+/* Pistas suaves por categoria (1ª dica sobre um cartão) — não revelam a zona certa */
+const CONT_HINTS = {
+  senha:'tem a ver com a forma como proteges o acesso às tuas contas',
+  dados:'tem a ver com informações tuas que não deves andar a espalhar',
+  publicar:'tem a ver com o que partilhas ou publicas online',
+  links:'tem a ver com mensagens ou sites em que talvez não possas confiar',
+  privacidade:'tem a ver com respeitar o espaço e as informações das outras pessoas',
+  dispositivos:'tem a ver com cuidar bem do teu telemóvel ou computador',
+  backup:'tem a ver com guardar cópias dos teus ficheiros, só por precaução',
+  ajuda:'tem a ver com o que fazer quando algo corre mal online',
+};
+let hintFocusId = null; // cartão sobre o qual já demos uma dica suave, à espera da 2ª dica
+
 function highlightZoneHint(cont){
   const hintZone=document.getElementById('zone-'+cont);
   if(hintZone){
@@ -1028,11 +1074,25 @@ function requestHint(){
   if(gameOver)return;
   const remaining=getActiveCards().filter(c=>!placedIds.has(c.id));
   if(!remaining.length){ bub('Já colocaste tudo! 🎉',true); return; }
-  const card=remaining[~~(Math.random()*remaining.length)];
-  highlightZoneHint(card.cont);
+  // Manter o foco no mesmo cartão enquanto não for colocado, para a dica poder escalar
+  let card = remaining.find(c=>c.id===hintFocusId);
+  const isFollowUp = !!card;
+  if(!card){
+    card = remaining[~~(Math.random()*remaining.length)];
+    hintFocusId = card.id;
+  }
   hintsUsed++;
   saveProgress();
-  bub(`Dica: "${card.name}" é da regra "${CONT_NAMES[card.cont]||card.cont}"! 👀`,true);
+  if(!isFollowUp){
+    // 1ª dica sobre este cartão: pista suave, sem revelar a zona
+    const clue = CONT_HINTS[card.cont] || 'pensa bem em que grupo isto se encaixa';
+    bub(`Dica: "${card.name}" — ${clue}. Pede outra dica se ainda tiveres dúvidas! 🤔`,true);
+  } else {
+    // 2ª dica sobre o mesmo cartão: agora sim, revela a zona
+    highlightZoneHint(card.cont);
+    hintFocusId = null;
+    bub(`Dica: "${card.name}" é da regra "${CONT_NAMES[card.cont]||card.cont}"! 👀`,true);
+  }
 }
 
 /* ══ PROGRESSO GUARDADO (para não perder tudo se a página recarregar) ══ */
@@ -1044,6 +1104,7 @@ function saveProgress(){
     const data={
       level: currentLevel,
       activeIds: currentActiveIds ? currentActiveIds.slice() : null,
+      activeConts: currentConts ? currentConts.slice() : null,
       playerName: (document.getElementById('playerNameInput').value||'').trim(),
       scoreOk, scoreErr, comboCount, nextBonusAt, hintsUsed,
       contCounts: Object.assign({},contCounts),
@@ -1617,6 +1678,7 @@ function attemptPlacement(cardEl,card,targetZone){
       triggerCombo(comboCount);
     }
     placedIds.add(card.id);
+    markCardDiscovered(card.id);
     saveProgress();
     // Mostra sempre a explicação da regra, para reforçar a aprendizagem
     const _card=card;
@@ -1670,6 +1732,7 @@ function setupZoneInteractions(){
   });
 }
 setupZoneInteractions();
+updateCoverageUI();
 
 /* ══ WIN ══ */
 function starsStr(n){return'⭐'.repeat(n)+'☆'.repeat(3-n);}
@@ -1766,7 +1829,7 @@ function switchLevel(level){
 }
 const LVL_DESCS={
   easy:'4 regras · 12 cartões — perfeito para começar!',
-  medium:'6 regras · 24 cartões — todas as regras principais!',
+  medium:'6 de 8 regras (à sorte) · 24 cartões — quase todas as regras!',
   hard:'8 regras · 48 cartões — o desafio máximo! 🔥',
 };
 function selectLevel(level){
@@ -1780,14 +1843,16 @@ function selectLevel(level){
   if(d) d.textContent=LVL_DESCS[level];
 }
 
-/* IDs dos cartões escolhidos para a partida atual (aleatórios por categoria,
-   mas fixos enquanto a partida decorre — ver startLevel/pickActiveIds). */
+/* IDs e categorias escolhidas para a partida atual — sorteadas por categoria,
+   mas fixas enquanto a partida decorre (ver startLevel/pickActiveIds). */
 let currentActiveIds = null;
+let currentConts = null;
 
-function pickActiveIds(level){
+function pickActiveSelection(level){
   const lv = LEVELS[level];
+  const conts = lv.conts ? lv.conts.slice() : shuffle(lv.contsPool).slice(0, lv.contsCount);
   const ids = [];
-  lv.conts.forEach(cont=>{
+  conts.forEach(cont=>{
     const pool = ALL_CARDS.filter(c=>c.cont===cont);
     if(lv.countPerCont==null || lv.countPerCont>=pool.length){
       ids.push(...pool.map(c=>c.id));
@@ -1795,26 +1860,32 @@ function pickActiveIds(level){
       ids.push(...shuffle(pool).slice(0,lv.countPerCont).map(c=>c.id));
     }
   });
-  return ids;
+  return {ids, conts};
 }
 
 function getActiveCards(){
-  if(!currentActiveIds) currentActiveIds = pickActiveIds(currentLevel); // salvaguarda
+  if(!currentActiveIds) currentActiveIds = pickActiveSelection(currentLevel).ids; // salvaguarda
   return ALL_CARDS.filter(card=>currentActiveIds.includes(card.id));
 }
 
 function getActiveCont(){
-  return LEVELS[currentLevel].conts;
+  if(!currentConts) currentConts = pickActiveSelection(currentLevel).conts; // salvaguarda
+  return currentConts;
 }
 
 function startLevel(level, restore){
   if(!level) level=selectedLevel;
   currentLevel=level;
-  // Escolher os cartões desta partida: se estamos a continuar um jogo guardado,
-  // reutilizar exatamente os mesmos; caso contrário, sortear novos por categoria.
-  currentActiveIds = (restore && Array.isArray(restore.activeIds) && restore.activeIds.length)
-    ? restore.activeIds.slice()
-    : pickActiveIds(level);
+  // Escolher os cartões e as categorias desta partida: se estamos a continuar um jogo
+  // guardado, reutilizar exatamente os mesmos; caso contrário, sortear de novo.
+  if(restore && Array.isArray(restore.activeIds) && restore.activeIds.length && Array.isArray(restore.activeConts) && restore.activeConts.length){
+    currentActiveIds = restore.activeIds.slice();
+    currentConts = restore.activeConts.slice();
+  } else {
+    const picked = pickActiveSelection(level);
+    currentActiveIds = picked.ids;
+    currentConts = picked.conts;
+  }
   document.getElementById('startScreen').classList.remove('active');
   document.querySelector('header').style.display='';
   // Mostrar nome do aluno no header
@@ -1875,6 +1946,7 @@ function init(restore){
   });
   gameOver=false;
   scoreOk=0;scoreErr=0;
+  hintFocusId=null;
   Object.keys(contCounts).forEach(k=>contCounts[k]=0);
   Object.keys(cardErrors).forEach(k=>delete cardErrors[k]);
   placedIds=new Set();
